@@ -1,0 +1,5 @@
+.env
+.rumdl_cache/
+__pycache__/
+cspell-words-missing.txt
+repos.conf

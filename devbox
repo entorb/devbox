@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Run a coding shell in a container that sees only the repos listed in repos.conf.
+set -euo pipefail
+
+IMAGE=devbox
+VOLUME=devbox-home
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+CONF="$DIR/repos.conf"
+
+case "${1-}" in
+  build)
+    shift
+    exec docker build -t "$IMAGE" "$@" "$DIR"
+    ;;
+  reset)
+    read -r -p "Remove volume $VOLUME (logins, Context7 key, opencode + claude sessions, history)? [y/N] " a
+    [[ $a == [yY] ]] || exit 0
+    exec docker volume rm "$VOLUME"
+    ;;
+  update)
+    shift
+    # refresh the volume-side config: agent self-updates, plus the rtk/ctx7 bits that a rebuild
+    # cannot reach. The key is read out of the gitignored .env and handed over as an environment
+    # variable, never as argv. Parsed rather than sourced: .env is data, not a script to run.
+    CONTEXT7_KEY=""
+    if [[ -f $DIR/.env ]]; then
+      CONTEXT7_KEY="$(sed -n 's/^CONTEXT7_KEY=//p' "$DIR/.env" |
+        head -1 | tr -d '\r"'"'"' ')"
+      [[ -n $CONTEXT7_KEY ]] || {
+        echo "devbox: no CONTEXT7_KEY= in $DIR/.env" >&2
+        exit 1
+      }
+    else
+      echo "devbox: no $DIR/.env, configuring Context7 in OAuth mode" >&2
+    fi
+    export CONTEXT7_KEY
+    # shellcheck disable=SC2016  # deliberate: these expand in the container, not here
+    set -- bash -lc '
+      set -e
+      claude update || true
+      opencode upgrade || true
+      rtk init --global --auto-patch </dev/null
+      rtk init --global --opencode --auto-patch </dev/null
+      for agent in --claude --opencode; do
+        if [ -n "${CONTEXT7_KEY:-}" ]; then
+          pnpm dlx ctx7@latest setup "$agent" --mcp --api-key "$CONTEXT7_KEY" -y </dev/null
+        else
+          pnpm dlx ctx7@latest setup "$agent" --mcp --oauth -y </dev/null
+        fi
+      done
+      tool-config
+    '
+    ;;
+  --) shift ;;
+esac
+
+[[ -f $CONF ]] || {
+  echo "devbox: no $CONF (start from repos.conf.example)" >&2
+  exit 1
+}
+
+mounts=()
+names=()
+while IFS= read -r line || [[ -n $line ]]; do
+  [[ $line == \#* ]] && continue
+  line="${line%%[[:space:]]#*}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  [[ -n $line ]] || continue
+
+  path="${line/#\~/$HOME}"
+  # resolve, and refuse unknown paths: docker would silently create a root-owned dir on the host
+  path="$(cd "$path" 2>/dev/null && pwd -P)" || {
+    echo "devbox: not a directory: $line" >&2
+    exit 1
+  }
+
+  name="$(basename "$path")"
+  for seen in ${names[@]+"${names[@]}"}; do
+    [[ $seen == "$name" ]] && {
+      echo "devbox: two repos named '$name'" >&2
+      exit 1
+    }
+  done
+  names+=("$name")
+  mounts+=(-v "$path:/code/$name")
+done <"$CONF"
+
+((${#mounts[@]})) || {
+  echo "devbox: $CONF lists no repos" >&2
+  exit 1
+}
+
+# one AGENTS.md, read-only, in both agents' rules directories -- not over their own rule files,
+# so the instructions rtk and ctx7 installed at image build keep working alongside it
+agents=()
+if [[ -f $DIR/AGENTS.md ]]; then
+  agents=(-v "$DIR/AGENTS.md:/home/t/.config/opencode/rules/agents.md:ro"
+    -v "$DIR/AGENTS.md:/home/t/.claude/rules/agents.md:ro")
+fi
+
+# no provider keys from the host env: agents log in inside the box and the credentials stay in
+# the home volume. CONTEXT7_KEY is the one exception, and only `devbox update` above sets it --
+# it is written into the agents' MCP config, not left in the environment of an interactive run.
+keys=()
+[[ -n ${CONTEXT7_KEY-} ]] && keys+=(-e CONTEXT7_KEY)
+
+# git identity only: no keys, no agent socket, no gh token -> commit yes, push no.
+# empty would reach git as an empty ident and fail at commit time, so catch it here instead
+git_name="$(git config --global user.name || true)"
+git_email="$(git config --global user.email || true)"
+[[ -n $git_name && -n $git_email ]] || {
+  echo "devbox: set git config --global user.name and user.email first (commits inside need them)" >&2
+  exit 1
+}
+
+# dev servers need a way out. Published on 127.0.0.1 only, so the box is reachable from this
+# host and not from the LAN. Override with DEVBOX_PORTS="3000 9229" ./devbox -- the value is a
+# space-separated list of ports, each mapped host:container 1:1. DEVBOX_PORTS= publishes
+# none, which is what a second box alongside a running one needs.
+ports=()
+for p in ${DEVBOX_PORTS-3000 4200 5173 8000 8080}; do
+  [[ $p =~ ^[0-9]+$ ]] || {
+    echo "devbox: DEVBOX_PORTS: not a port: $p" >&2
+    exit 1
+  }
+  ports+=(-p "127.0.0.1:$p:$p")
+done
+
+# shellcheck disable=SC2046  # deliberate: -t must vanish entirely when stdin is not a tty
+exec docker run --rm -i $([[ -t 0 ]] && echo -t) \
+  --init \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --hostname db \
+  -v "$VOLUME:/home/t" \
+  "${mounts[@]}" \
+  ${ports[@]+"${ports[@]}"} \
+  ${agents[@]+"${agents[@]}"} \
+  ${keys[@]+"${keys[@]}"} \
+  -w /code \
+  -e TERM="${TERM:-xterm-256color}" \
+  -e HOST=0.0.0.0 \
+  -e GIT_AUTHOR_NAME="$git_name" \
+  -e GIT_AUTHOR_EMAIL="$git_email" \
+  -e GIT_COMMITTER_NAME="$git_name" \
+  -e GIT_COMMITTER_EMAIL="$git_email" \
+  "$IMAGE" "$@"

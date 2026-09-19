@@ -33,6 +33,7 @@ RUN apt-get update \
       less \
       mc \
       ncdu \
+      netcat-openbsd \
       openssh-client \
       python3 \
       python3-dev \

@@ -1,6 +1,6 @@
 # Repos mounted into the devbox, one host path per line.
-# Each becomes /code/<basename>. Nothing else on the Mac is visible.
+# Each becomes /code/<basename>. Nothing else on the host is visible.
 # ~ is expanded, # starts a comment.
 
-~/GitHub/analyze-oura
-~/GitHub/nice-todo
+~/GitHub/flashcards
+~/GitHub/kaiser2

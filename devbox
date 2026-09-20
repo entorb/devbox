@@ -7,6 +7,67 @@ VOLUME=devbox-home
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 CONF="$DIR/repos.conf"
 
+# busy includes a port another box published: docker holds it from container start, idle or not
+port_busy() { (: </dev/tcp/127.0.0.1/"$1") 2>/dev/null; }
+
+# "8500" or "5173,5174" -> `ports` (docker -p flags) + `port_list`. Published 1:1, so there is no
+# mapping to remember. Checked here only to name the busy port; a dead heat still lands on docker.
+add_ports() {
+  local p
+  local IFS=,
+  # shellcheck disable=SC2086  # deliberate: split the comma-separated list
+  for p in $1; do
+    [[ $p =~ ^[0-9]+$ ]] || {
+      echo "devbox: --port: not a port: $p" >&2
+      exit 1
+    }
+    port_busy "$p" && {
+      echo "devbox: port $p is already in use on this host -- another box has it?" >&2
+      exit 1
+    }
+    ports+=(-p "127.0.0.1:$p:$p")
+    port_list="$port_list $p"
+  done
+}
+
+# Eats a leading --port flag of "$@", once, either spelling, ports comma-separated:
+#   --port 8500                  --port=8500
+#   --port 5173,5174,8500        --port=5173,5174,8500
+#   --port 5173,8500 -- pnpm -C kaiser2 dev
+# Sets `ports`, `port_list`, and `port_args` -- how many arguments the caller must now shift.
+parse_ports() {
+  ports=()
+  port_list=""
+  port_args=0
+  if [[ ${1-} == --port || ${1-} == --port=* ]]; then
+    local val=${1#--port}
+    if [[ -z $val ]]; then
+      val=${2-}
+      port_args=2
+    else
+      val=${val#=}
+      port_args=1
+    fi
+    # a bare --port would otherwise eat the `--` and publish the command name
+    [[ -n $val && $val != -- ]] || {
+      echo "devbox: --port needs a value, e.g. --port 5173,8500" >&2
+      exit 1
+    }
+    add_ports "$val"
+    shift "$port_args"
+    # a bare number here is a second port written the old way, not a command to run inside
+    [[ ! ${1-} =~ ^[0-9,]+$ ]] || {
+      echo "devbox: list ports with commas: --port $val,$1" >&2
+      exit 1
+    }
+  fi
+  # a second flag would otherwise reach docker as part of the command
+  [[ ${1-} != --port && ${1-} != --port=* ]] || {
+    echo "devbox: --port once only -- list them: --port 5173,8500" >&2
+    exit 1
+  }
+}
+
 case "${1-}" in
   build)
     shift
@@ -19,6 +80,17 @@ case "${1-}" in
     ;;
   update)
     shift
+    # git identity, handed over for tool-config to write into the volume's ~/.gitconfig. Only
+    # here: an interactive box reads it back from there, so it needs no identity in its env.
+    # Empty would reach git as an empty ident and fail at commit time, so catch it now instead.
+    git_name="$(git config --global user.name || true)"
+    git_email="$(git config --global user.email || true)"
+    [[ -n $git_name && -n $git_email ]] || {
+      echo "devbox: set git config --global user.name and user.email first (commits inside need them)" >&2
+      exit 1
+    }
+    git_env=(-e GIT_AUTHOR_NAME="$git_name" -e GIT_AUTHOR_EMAIL="$git_email")
+
     # refresh the volume-side config: agent self-updates, plus the rtk/ctx7 bits that a rebuild
     # cannot reach. The key is read out of the gitignored .env and handed over as an environment
     # variable, never as argv. Parsed rather than sourced: .env is data, not a script to run.
@@ -51,7 +123,106 @@ case "${1-}" in
       tool-config
     '
     ;;
-  --) shift ;;
+  selftest)
+    # faked host, so the check needs neither docker nor a free port
+    FAKE_BUSY=""
+    port_busy() { [[ " $FAKE_BUSY " == *" $1 "* ]]; }
+    fails=0
+    expect() { # expect <name> <expected -p flags> <expected shift> <args...>
+      local name=$1 exp=$2 shift_exp=$3
+      shift 3
+      parse_ports "$@" 2>/dev/null
+      if [[ "${ports[*]-}" == "$exp" && $port_args == "$shift_exp" ]]; then
+        echo "ok: $name"
+      else
+        echo "FAIL: $name: got '${ports[*]-}' shift $port_args," \
+          "want '$exp' shift $shift_exp" >&2
+        fails=$((fails + 1))
+      fi
+    }
+
+    expect "--port=N, published 1:1" "-p 127.0.0.1:8500:8500" 1 --port=8500
+    [[ $port_list == " 8500" ]] || {
+      echo "FAIL: port_list '$port_list'" >&2
+      fails=$((fails + 1))
+    }
+
+    # same result either spelling; the space form eats two arguments, not one
+    expect "--port N, same result" "-p 127.0.0.1:8500:8500" 2 --port 8500
+
+    expect "comma-separated list" \
+      "-p 127.0.0.1:5173:5173 -p 127.0.0.1:5174:5174" 1 --port=5173,5174
+    expect "comma-separated, space form" \
+      "-p 127.0.0.1:5173:5173 -p 127.0.0.1:5174:5174" 2 --port 5173,5174
+
+    expect "three ports in one list" \
+      "-p 127.0.0.1:5173:5173 -p 127.0.0.1:5174:5174 -p 127.0.0.1:8500:8500" \
+      2 --port 5173,5174,8500
+
+    # the space-separated spelling is gone: say so instead of running "5174" in the box
+    for bad in "--port 5173 5174" "--port=5173 8500"; do
+      # shellcheck disable=SC2086  # deliberate: $bad is an argument list
+      if (parse_ports $bad) 2>/dev/null; then
+        echo "FAIL: '$bad' accepted" >&2
+        fails=$((fails + 1))
+      else
+        echo "ok: space-separated rejected: '$bad'"
+      fi
+    done
+
+    # the first non-number ends the list, so the command still gets through
+    expect "stops at the command" "-p 127.0.0.1:5173:5173" 2 --port 5173 opencode
+
+    # the command behind -- survives untouched
+    expect "stops at --" "-p 127.0.0.1:5173:5173" 2 --port 5173 -- bash -lc "echo hi"
+    expect "no --port publishes nothing" "" 0 -- bash
+
+    # a port another box holds must fail loudly, not start a half-open box
+    FAKE_BUSY="8500"
+    if (parse_ports --port 8500) 2>/dev/null; then
+      echo "FAIL: busy port accepted" >&2
+      fails=$((fails + 1))
+    else
+      echo "ok: busy port rejected before docker sees it"
+    fi
+
+    FAKE_BUSY=""
+    if (parse_ports --port=80x) 2>/dev/null; then
+      echo "FAIL: non-numeric port accepted" >&2
+      fails=$((fails + 1))
+    else
+      echo "ok: non-numeric port rejected"
+    fi
+
+    # a repeated flag must not slip through into the command handed to docker
+    for bad in "--port 5173 --port=8500" "--port=5173 --port 8500"; do
+      # shellcheck disable=SC2086  # deliberate: $bad is an argument list
+      if (parse_ports $bad) 2>/dev/null; then
+        echo "FAIL: '$bad' accepted" >&2
+        fails=$((fails + 1))
+      else
+        echo "ok: repeated flag rejected: '$bad'"
+      fi
+    done
+
+    # a bare --port at the end, or before --, must not swallow what follows
+    for bad in "--port" "--port --"; do
+      # shellcheck disable=SC2086  # deliberate: $bad is an argument list
+      if (parse_ports $bad) 2>/dev/null; then
+        echo "FAIL: '--port$bad' accepted without a value" >&2
+        fails=$((fails + 1))
+      else
+        echo "ok: bare '$bad' rejected"
+      fi
+    done
+
+    [[ $fails == 0 ]] || {
+      echo "$fails failed" >&2
+      exit 1
+    }
+    echo "all passed"
+    exit 0
+    ;;
 esac
 
 [[ -f $CONF ]] || {
@@ -91,12 +262,14 @@ done <"$CONF"
   exit 1
 }
 
-# one AGENTS.md, read-only, in both agents' rules directories -- not over their own rule files,
-# so the instructions rtk and ctx7 installed at image build keep working alongside it
+# AGENTS.md-TEMPLATE, read-only, in both agents' rules directories -- not over their own rule
+# files, so the instructions rtk and ctx7 installed at image build keep working alongside it.
+# The repo's own AGENTS.md describes this repo and stays outside the box.
+RULES="$DIR/AGENTS.md-TEMPLATE"
 agents=()
-if [[ -f $DIR/AGENTS.md ]]; then
-  agents=(-v "$DIR/AGENTS.md:/home/t/.config/opencode/rules/agents.md:ro"
-    -v "$DIR/AGENTS.md:/home/t/.claude/rules/agents.md:ro")
+if [[ -f $RULES ]]; then
+  agents=(-v "$RULES:/home/t/.config/opencode/rules/agents.md:ro"
+    -v "$RULES:/home/t/.claude/rules/agents.md:ro")
 fi
 
 # no provider keys from the host env: agents log in inside the box and the credentials stay in
@@ -105,34 +278,30 @@ fi
 keys=()
 [[ -n ${CONTEXT7_KEY-} ]] && keys+=(-e CONTEXT7_KEY)
 
-# git identity only: no keys, no agent socket, no gh token -> commit yes, push no.
-# empty would reach git as an empty ident and fail at commit time, so catch it here instead
-git_name="$(git config --global user.name || true)"
-git_email="$(git config --global user.email || true)"
-[[ -n $git_name && -n $git_email ]] || {
-  echo "devbox: set git config --global user.name and user.email first (commits inside need them)" >&2
-  exit 1
-}
+# A box publishes nothing by default, which is what lets several run side by side. On 127.0.0.1
+# only, so a dev server is reachable from this host and not from the LAN.
+parse_ports "$@"
+shift "$port_args"
+if [[ ${1-} == -- ]]; then shift; fi
 
-# dev servers need a way out. Published on 127.0.0.1 only, so the box is reachable from this
-# host and not from the LAN. Override with DEVBOX_PORTS="3000 9229" ./devbox -- the value is a
-# space-separated list of ports, each mapped host:container 1:1. DEVBOX_PORTS= publishes
-# none, which is what a second box alongside a running one needs.
-ports=()
-for p in ${DEVBOX_PORTS-3000 4200 5173 8000 8080}; do
-  [[ $p =~ ^[0-9]+$ ]] || {
-    echo "devbox: DEVBOX_PORTS: not a port: $p" >&2
-    exit 1
-  }
-  ports+=(-p "127.0.0.1:$p:$p")
-done
+# nothing inside the box knows which of its ports left the container
+[[ -z $port_list ]] || echo "devbox: publishing${port_list} on 127.0.0.1" >&2
+
+# The title below holds only while docker starts: the shell inside re-sets it from \u@\h at every
+# prompt and wins. Hence "db-8501" -- the port rides along in what that prompt prints.
+host_name="db${port_list// /-}"
+# not exec'd below, so this shell outlives docker and restores the old title on exit
+if [[ -t 1 ]]; then
+  printf '\033]0;devbox%s\007' "$port_list"
+  trap 'printf "\033]0;\007"' EXIT
+fi
 
 # shellcheck disable=SC2046  # deliberate: -t must vanish entirely when stdin is not a tty
-exec docker run --rm -i $([[ -t 0 ]] && echo -t) \
+docker run --rm -i $([[ -t 0 ]] && echo -t) \
   --init \
   --cap-drop ALL \
   --security-opt no-new-privileges \
-  --hostname db \
+  --hostname "$host_name" \
   -v "$VOLUME:/home/t" \
   "${mounts[@]}" \
   ${ports[@]+"${ports[@]}"} \
@@ -141,8 +310,7 @@ exec docker run --rm -i $([[ -t 0 ]] && echo -t) \
   -w /code \
   -e TERM="${TERM:-xterm-256color}" \
   -e HOST=0.0.0.0 \
-  -e GIT_AUTHOR_NAME="$git_name" \
-  -e GIT_AUTHOR_EMAIL="$git_email" \
-  -e GIT_COMMITTER_NAME="$git_name" \
-  -e GIT_COMMITTER_EMAIL="$git_email" \
+  -e STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
+  -e STREAMLIT_SERVER_HEADLESS=true \
+  ${git_env[@]+"${git_env[@]}"} \
   "$IMAGE" "$@"

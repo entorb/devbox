@@ -13,6 +13,7 @@ Lockfiles
 mindchat
 mountpoint
 ncdu
+netcat
 nicegui
 opencode
 openrouter

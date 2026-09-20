@@ -23,3 +23,11 @@ if [ -n "${GIT_AUTHOR_NAME:-}" ] && [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
   git config --global user.name "$GIT_AUTHOR_NAME"
   git config --global user.email "$GIT_AUTHOR_EMAIL"
 fi
+
+# The box's own venv dir. uv puts it at <repo>/.venv-box (UV_PROJECT_ENVIRONMENT), inside a
+# bind-mounted host repo, so it must stay out of git without editing every repo's .gitignore.
+# ~/.config/git/ignore is git's default excludesFile, no core.excludesFile needed.
+gi=$HOME/.config/git/ignore
+mkdir -p "$(dirname "$gi")"
+[ -f "$gi" ] || : >"$gi"
+grep -qx '\.venv-box/' "$gi" || echo '.venv-box/' >>"$gi"

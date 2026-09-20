@@ -4,6 +4,7 @@ set -euo pipefail
 
 IMAGE=devbox
 VOLUME=devbox-home
+NM_PREFIX=devbox-nm-
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 CONF="$DIR/repos.conf"
 
@@ -74,8 +75,12 @@ case "${1-}" in
     exec docker build -t "$IMAGE" "$@" "$DIR"
     ;;
   reset)
-    read -r -p "Remove volume $VOLUME (logins, Context7 key, opencode + claude sessions, history)? [y/N] " a
+    read -r -p "Remove volume $VOLUME (logins, Context7 key, opencode + claude sessions, history) and the box-side node_modules? [y/N] " a
     [[ $a == [yY] ]] || exit 0
+    # the per-repo node_modules volumes go too: reinstallable, and a stale one outlives the repo
+    nm_vols="$(docker volume ls -q --filter "name=^$NM_PREFIX")"
+    # shellcheck disable=SC2086  # deliberate: one volume per line, none of them with spaces
+    [[ -z $nm_vols ]] || docker volume rm $nm_vols
     exec docker volume rm "$VOLUME"
     ;;
   update)
@@ -232,6 +237,7 @@ esac
 
 mounts=()
 names=()
+nm_vols=()
 while IFS= read -r line || [[ -n $line ]]; do
   [[ $line == \#* ]] && continue
   line="${line%%[[:space:]]#*}"
@@ -255,12 +261,46 @@ while IFS= read -r line || [[ -n $line ]]; do
   done
   names+=("$name")
   mounts+=(-v "$path:/code/$name")
+
+  # Every package.json gets its own node_modules volume mounted over the bind mount: host and box
+  # both install into <dir>/node_modules, but the host's tree is darwin binaries and the box's is
+  # linux, so sharing the directory breaks whichever side installed last. Masking keeps both.
+  # Not just the repo root -- a pnpm workspace links into apps/*/node_modules, and a repo can hold
+  # several unrelated projects with no package.json of its own at all.
+  # Python needs no counterpart: uv writes .venv-box in the box (UV_PROJECT_ENVIRONMENT).
+  while IFS= read -r pkg; do
+    rel="${pkg%/package.json}"
+    rel="${rel#"$path"}"
+    vol="$NM_PREFIX$name${rel//\//-}"
+    vol="${vol//[^A-Za-z0-9_.-]/_}"
+    nm_vols+=("$vol")
+    mounts+=(-v "$vol:/code/$name$rel/node_modules")
+  done < <(find "$path" -maxdepth 3 \( -name node_modules -o -name '.*' \) -prune -o -name package.json -print)
 done <"$CONF"
 
 ((${#mounts[@]})) || {
   echo "devbox: $CONF lists no repos" >&2
   exit 1
 }
+
+# A volume that does not exist yet has no mountpoint in the image to take its ownership from, so
+# docker creates it root-owned and the box -- uid 1000, no sudo -- cannot install into it. chown
+# them once, in one root container that sees nothing but the empty volumes.
+if ((${#nm_vols[@]})); then
+  have="$(docker volume ls -q --filter "name=^$NM_PREFIX")"
+  fresh=()
+  n=0
+  for vol in "${nm_vols[@]}"; do
+    grep -qxF "$vol" <<<"$have" || {
+      fresh+=(-v "$vol:/nm/$n")
+      n=$((n + 1))
+    }
+  done
+  if ((${#fresh[@]})); then
+    echo "devbox: preparing $n node_modules volume(s)" >&2
+    docker run --rm -u 0 "${fresh[@]}" "$IMAGE" chown 1000:1000 -R /nm
+  fi
+fi
 
 # AGENTS.md-TEMPLATE, read-only, in both agents' rules directories -- not over their own rule
 # files, so the instructions rtk and ctx7 installed at image build keep working alongside it.

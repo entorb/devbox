@@ -17,6 +17,8 @@ After changes, just start the container again, no rebuild needed.
 ./devbox build
 # update opencode, claude, and tool-configs (rtk/ctx7)
 ./devbox update
+# update everything else; nothing is pinned, all resolve latest
+./devbox build --no-cache --pull
 # wipe container home: logins, sessions, history
 ./devbox reset
 ```
@@ -26,28 +28,18 @@ After changes, just start the container again, no rebuild needed.
 Nothing is baked in. Log in once inside; it lives in the `devbox-home` volume and survives rebuilds.
 
 ```sh
+./devbox update
+
+./devbox
+
+# OpenCode
+opencode
+ - provider
+
 # Claude Code
 claude
  /login
-
-# OpenCode
-opencode provider
-
-# Context7
-`CONTEXT7_KEY=` in `.env`
-./devbox update
 ```
-
-## Update
-
-```sh
-# agents in place, plus rtk/ctx7 config in the volume
-./devbox update
-# everything else; nothing is pinned, all resolve latest
-./devbox build --no-cache --pull
-```
-
-Both build flags matter: plain `./devbox build` reuses the layer cache and updates nothing. A rebuild never touches the volume, so the agents and their seeded config update only via `./devbox update`.
 
 ## Layout
 
@@ -82,17 +74,20 @@ flowchart LR
       rules["~/.claude/rules/agents.md<br>~/.config/opencode/rules/agents.md"]
     end
     code["/code/&lt;repo&gt; — bind mounts, real host files"]
+    nm["volumes 'devbox-nm-&lt;repo&gt;-&lt;path&gt;' — one per<br>package.json, mounted over its node_modules"]
   end
 
   build ==>|"replaces"| img
   update ==>|"updates in place"| agents
   update ==>|"runs tool-config"| state
   reset ==>|"deletes"| vol
+  reset ==>|"deletes"| nm
 
   script -->|"COPY at build"| binary
   binary -.->|"seeds at build, re-asserts on update"| state
   keys -.->|"update only"| state
   repos -->|"rw bind mount"| code
+  code -.->|"box-side node_modules, host tree untouched"| nm
   amd -->|"ro bind mount"| rules
 ```
 

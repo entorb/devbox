@@ -15,3 +15,11 @@ oc=$HOME/.config/opencode/opencode.json
 jq --arg p "$HOME/.config/opencode/rules/agents.md" \
   '.instructions = [$p] | .formatter = true' "$oc" >"$oc.new"
 mv "$oc.new" "$oc"
+
+# git identity, handed in by `devbox update` from the host's global config. Unset at image build,
+# so that caller skips it. user.name/user.email cover author and committer both, which the
+# GIT_COMMITTER_* the launcher would otherwise have to pass do not do on their own.
+if [ -n "${GIT_AUTHOR_NAME:-}" ] && [ -n "${GIT_AUTHOR_EMAIL:-}" ]; then
+  git config --global user.name "$GIT_AUTHOR_NAME"
+  git config --global user.email "$GIT_AUTHOR_EMAIL"
+fi

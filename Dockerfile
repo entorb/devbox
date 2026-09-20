@@ -56,10 +56,13 @@ RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 #
 
 # set before the installs below: npm_config_update_notifier and UV_LINK_MODE steer them,
-# UV_TOOL_DIR keeps the tool venvs out of the resettable home volume
+# UV_TOOL_DIR keeps the tool venvs out of the resettable home volume.
+# UV_PROJECT_ENVIRONMENT is relative, so uv resolves it per repo: the box builds its linux venv
+# in <repo>/.venv-box and never touches the host's own .venv in the same bind-mounted repo.
 ENV LANG=C.UTF-8 \
     npm_config_update_notifier=false \
     UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=.venv-box \
     UV_TOOL_DIR=/opt/uv-tools
 
 #

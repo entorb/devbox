@@ -161,7 +161,10 @@ RUN mkdir -p /home/t/.config/opencode/rules /home/t/.claude/rules \
 # Agents live in the home volume, owned by t, so their own updaters can replace them in
 # place. That survives a rebuild (the volume is not reseeded) and keeps logins and keys intact.
 # The trade-off is deliberate: an agent here CAN overwrite its own install, unlike /usr/local.
+# allow-scripts as ENV, not a one-off flag: `claude update` / `opencode upgrade` reinstall via
+# npm 12, which otherwise skips their postinstall and leaves a binary that refuses to start.
 ENV NPM_CONFIG_PREFIX=/home/t/.npm-global \
+    npm_config_allow_scripts=@anthropic-ai/claude-code,opencode-ai \
     PATH=/home/t/.npm-global/bin:$PATH
 
 #
@@ -175,7 +178,7 @@ WORKDIR /code
 # => user-level install of opencode and claude
 #
 
-RUN npm install -g --allow-scripts=@anthropic-ai/claude-code,opencode-ai \
+RUN npm install -g \
       @anthropic-ai/claude-code \
       opencode-ai \
  && npm cache clean --force

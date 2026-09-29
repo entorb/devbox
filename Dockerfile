@@ -27,6 +27,7 @@ RUN apt-get update \
       fd-find \
       file \
       git \
+      git-filter-repo \
       htop \
       imagemagick \
       jq \

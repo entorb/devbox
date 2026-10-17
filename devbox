@@ -114,7 +114,7 @@ case "${1-}" in
     # shellcheck disable=SC2016  # deliberate: these expand in the container, not here
     set -- bash -lc '
       set -e
-      claude update || true
+      claude update || npm install -g @anthropic-ai/claude-code || true
       opencode upgrade || true
       rtk init --global --auto-patch </dev/null
       rtk init --global --opencode --auto-patch </dev/null

@@ -25,9 +25,11 @@ RUN apt-get update \
       ca-certificates \
       curl \
       fd-find \
+      ffmpeg \
       file \
       git \
       git-filter-repo \
+      gh \
       htop \
       imagemagick \
       jq \

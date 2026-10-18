@@ -318,6 +318,10 @@ fi
 keys=()
 [[ -n ${CONTEXT7_KEY-} ]] && keys+=(-e CONTEXT7_KEY)
 
+# started from inside a mounted repo (matched by name, e.g. ~/GitHub/timer): land in /code/timer
+workdir=/code
+for n in "${names[@]}"; do [[ $n == "${PWD##*/}" ]] && workdir="/code/$n"; done
+
 # A box publishes nothing by default, which is what lets several run side by side. On 127.0.0.1
 # only, so a dev server is reachable from this host and not from the LAN.
 parse_ports "$@"
@@ -347,7 +351,7 @@ docker run --rm -i $([[ -t 0 ]] && echo -t) \
   ${ports[@]+"${ports[@]}"} \
   ${agents[@]+"${agents[@]}"} \
   ${keys[@]+"${keys[@]}"} \
-  -w /code \
+  -w "$workdir" \
   -e TERM="${TERM:-xterm-256color}" \
   -e HOST=0.0.0.0 \
   -e STREAMLIT_SERVER_ADDRESS=0.0.0.0 \

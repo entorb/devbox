@@ -3,6 +3,7 @@
 Container for coding, compiling and running coding agents with access to **only** the repos listed, no other local files
 
 Entries in `repos.conf` are bind-mounted at `/code/`, so real host files.
+Started from inside a listed repo (same dir name), the shell starts in `/code/<repo>`, else in `/code`.
 After changes, just start the container again, no rebuild needed.
 
 ## Commands

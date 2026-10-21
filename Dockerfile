@@ -134,6 +134,11 @@ RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/in
 # Chromium build is twice the size. Tests must leave `channel` unset to use it.
 # --with-deps shells out to apt-get install without an update first, hence the update here.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+# TODO: remove the xvfb pin once a newer version lands in resolute-updates.
+# resolute-updates ships xvfb 2:21.1.22-1ubuntu1.3 without its xserver-common on arm64,
+# so apt can't solve. Block that one version; harmless once a newer xvfb lands, then delete.
+RUN printf 'Package: xvfb\nPin: version 2:21.1.22-1ubuntu1.3\nPin-Priority: -1\n' \
+      > /etc/apt/preferences.d/xvfb-broken
 RUN apt-get update \
  && npx -y playwright@latest install --with-deps --only-shell chromium \
  && chown -R 1000:1000 /opt/ms-playwright \

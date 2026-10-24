@@ -10,10 +10,9 @@ After changes, just start the container again, no rebuild needed.
 
 ```sh
 ./devbox
-# straight into OpenCode
-./devbox opencode
-# one-off command
+# straight into OpenCode; `./devbox bash` for a plain shell
 ./devbox -- bash -lc 'uv run pytest'
+# one-off command
 # (re)build the image
 ./devbox build
 # update opencode, claude, and tool-configs (rtk/ctx7)
@@ -33,11 +32,10 @@ Nothing is baked in. Log in once inside; it lives in the `devbox-home` volume an
 
 ./devbox
 
-# OpenCode
-opencode
+# OpenCode starts directly
  - provider
 
-# Claude Code
+# Claude Code, after quitting OpenCode
 claude
  /login
 ```

@@ -115,6 +115,9 @@ case "${1-}" in
     set -- bash -lc '
       set -e
       claude update || npm install -g @anthropic-ai/claude-code || true
+      # a box whose postinstall was skipped has a stub binary, so check that before upgrading;
+      # the npm reinstall is what rebuilds it
+      opencode --version >/dev/null 2>&1 || npm install -g @opencode/cli@latest || true
       opencode upgrade || true
       rtk init --global --auto-patch </dev/null
       rtk init --global --opencode --auto-patch </dev/null
@@ -328,6 +331,9 @@ parse_ports "$@"
 shift "$port_args"
 if [[ ${1-} == -- ]]; then shift; fi
 
+# no command: straight into opencode; `./devbox bash` still gets a plain shell
+(($#)) || set -- opencode
+
 # nothing inside the box knows which of its ports left the container
 [[ -z $port_list ]] || echo "devbox: publishing${port_list} on 127.0.0.1" >&2
 
@@ -340,6 +346,8 @@ if [[ -t 1 ]]; then
   trap 'printf "\033]0;\007"' EXIT
 fi
 
+# The allow-scripts list repeats the image ENV on purpose: -e beats the ENV, and an older image
+# only names opencode-ai, so an existing box can still upgrade itself.
 # shellcheck disable=SC2046  # deliberate: -t must vanish entirely when stdin is not a tty
 docker run --rm -i $([[ -t 0 ]] && echo -t) \
   --init \
@@ -356,5 +364,6 @@ docker run --rm -i $([[ -t 0 ]] && echo -t) \
   -e HOST=0.0.0.0 \
   -e STREAMLIT_SERVER_ADDRESS=0.0.0.0 \
   -e STREAMLIT_SERVER_HEADLESS=true \
+  -e npm_config_allow_scripts=@anthropic-ai/claude-code,opencode-ai,@opencode/cli \
   ${git_env[@]+"${git_env[@]}"} \
   "$IMAGE" "$@"

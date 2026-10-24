@@ -171,8 +171,10 @@ RUN mkdir -p /home/t/.config/opencode/rules /home/t/.claude/rules \
 # The trade-off is deliberate: an agent here CAN overwrite its own install, unlike /usr/local.
 # allow-scripts as ENV, not a one-off flag: `claude update` / `opencode upgrade` reinstall via
 # npm 12, which otherwise skips their postinstall and leaves a binary that refuses to start.
+# The launcher passes the same list again, because -e beats this ENV and older images only
+# name opencode-ai.
 ENV NPM_CONFIG_PREFIX=/home/t/.npm-global \
-    npm_config_allow_scripts=@anthropic-ai/claude-code,opencode-ai \
+    npm_config_allow_scripts=@anthropic-ai/claude-code,opencode-ai,@opencode/cli \
     PATH=/home/t/.npm-global/bin:$PATH
 
 #
@@ -188,7 +190,7 @@ WORKDIR /code
 
 RUN npm install -g \
       @anthropic-ai/claude-code \
-      opencode-ai \
+      @opencode/cli \
  && npm cache clean --force
 
 #

@@ -331,9 +331,9 @@ parse_ports "$@"
 shift "$port_args"
 if [[ ${1-} == -- ]]; then shift; fi
 
-# no command: straight into opencode, then the box shell once it quits; `./devbox bash` still
+# no command: straight into opencode/claude, then the box shell once it quits; `./devbox bash` still
 # gets a plain shell
-(($#)) || set -- bash -lc 'opencode; exec bash -l'
+(($#)) || set -- bash -lc 'claude; exec bash -l'
 
 # nothing inside the box knows which of its ports left the container
 [[ -z $port_list ]] || echo "devbox: publishing${port_list} on 127.0.0.1" >&2

@@ -6,6 +6,7 @@ entorb
 esac
 fdclone
 fdfind
+gopath
 gpasswd
 korrekturleser
 librsvg

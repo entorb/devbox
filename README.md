@@ -63,7 +63,7 @@ flowchart LR
   subgraph box["container (--rm, uid 1000 't')"]
     direction TB
     subgraph img["image 'devbox'"]
-      tools["/usr/local — node, npm, pnpm, uv,<br>biome, ruff, prek, rumdl, rtk, apt packages"]
+      tools["/usr/local — node, npm, pnpm, uv, go,<br>biome, ruff, prek, rumdl, rtk, apt packages"]
       browser["/opt/ms-playwright — chromium-headless-shell<br>/opt/uv-tools — python tool venvs"]
       binary["/usr/local/bin/tool-config"]
     end
@@ -97,7 +97,7 @@ A rebuild never reseeds the volume: an existing `/home/t` wins, so anything the 
 - No `sudo` inside
 - Add apt packages to `apt-get install` list in the `Dockerfile`
 - `./devbox build`
-- Per-user installs need no rebuild and live in the home volume: `uv tool install <tool>`, `npm i -g <tool>`
+- Per-user installs need no rebuild and live in the home volume: `uv tool install <tool>`, `npm i -g <tool>`, `go install <pkg>@latest`
 - One-offs: `uvx <tool>`, `pnpm dlx <tool>`
 
 ## Working in the box and on the host

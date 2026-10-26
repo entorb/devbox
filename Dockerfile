@@ -12,6 +12,7 @@ ARG UBUNTU_VERSION=26.04
 
 FROM ghcr.io/astral-sh/uv:latest AS uv
 FROM node:${NODE_MAJOR}-trixie-slim AS node
+FROM golang:latest AS go
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -86,6 +87,16 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 # => Copy uv from official uv image
 #
 COPY --from=uv /uv /uvx /usr/local/bin/
+
+#
+# => Copy go from official golang image
+#
+
+# GOPATH stays at the default ~/go, in the home volume: module cache and `go install` binaries
+# are per-user state, like ~/.npm-global
+COPY --from=go /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:/home/t/go/bin:$PATH
+RUN go version
 
 #
 # => npm 12, pnpm, biome via npm

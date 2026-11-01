@@ -22,6 +22,7 @@ oura
 pipefail
 prek
 pycache
+pyproject
 pytest
 reinstallable
 rumdl

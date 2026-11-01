@@ -12,6 +12,22 @@ Commit only when explicitly requested. Use this format: `<type>: <description>`
 
 Format on save drops unused imports. If adding imports: first use, than add the import statement.
 
+## Unused Imports
+
+Format on save drops unused imports. If adding imports: first use, than add the import statement.
+
+## How-to fix Dependency Vulnerabilities that collide with cooldown
+
+UV: Fix release younger than `exclude-newer = "7 days"` cooldown → exempt package in `[tool.uv]` of `pyproject.toml` (TODO date = release date + 7 days), then `uv lock --upgrade-package <pkg>`:
+
+```toml
+# security fix <GHSA-id> (<pkg> <fixed version>)
+# TODO: remove after DD.MM.YY
+exclude-newer-package = { <pkg> = false }
+```
+
+PNPM: similar
+
 ## Caveman Speech
 
 Respond like smart caveman. Cut all filler, keep technical substance.

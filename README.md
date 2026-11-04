@@ -19,6 +19,8 @@ After changes, just start the container again, no rebuild needed.
 ./devbox update
 # update everything else; nothing is pinned, all resolve latest
 ./devbox build --no-cache --pull
+# free docker disk: build cache, old images, download caches in the home volume (uv, npm, ...)
+./devbox cleanup
 # wipe container home: logins, sessions, history
 ./devbox reset
 ```

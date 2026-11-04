@@ -72,7 +72,13 @@ parse_ports() {
 case "${1-}" in
   build)
     shift
-    exec docker build -t "$IMAGE" "$@" "$DIR"
+    old="$(docker image inspect -f '{{.Id}}' "$IMAGE" 2>/dev/null || true)"
+    docker build -t "$IMAGE" "$@" "$DIR"
+    # the replaced image would linger untagged; a box still running on it keeps it, hence || true
+    [[ -z $old || $old == "$(docker image inspect -f '{{.Id}}' "$IMAGE")" ]] ||
+      docker image rm "$old" >/dev/null 2>&1 || true
+    # LRU: the layers of this build are the newest and stay, so the next rebuild is still cached
+    exec docker builder prune -f --max-used-space 8gb >/dev/null
     ;;
   reset)
     read -r -p "Remove volume $VOLUME (logins, Context7 key, opencode + claude sessions, history) and the box-side node_modules? [y/N] " a
@@ -82,6 +88,23 @@ case "${1-}" in
     # shellcheck disable=SC2086  # deliberate: one volume per line, none of them with spaces
     [[ -z $nm_vols ]] || docker volume rm $nm_vols
     exec docker volume rm "$VOLUME"
+    ;;
+  cleanup)
+    # every rebuild leaves the old image behind, held only by the build cache; volumes stay
+    docker builder prune -f
+    docker image prune -f
+    # download caches in the home volume, each via its own tool; logins, sessions, agents stay.
+    # Only the volume is mounted, no repos.
+    docker run --rm --cap-drop ALL --security-opt no-new-privileges -v "$VOLUME:/home/t" "$IMAGE" \
+      bash -lc 'du -sh ~ | cut -f1
+        uv cache clean
+        npm cache clean --force
+        pnpm store prune
+        go clean -cache
+        prek cache gc
+        rm -rf ~/.cache/Cypress  # no cleaner of its own; npm install fetches it again
+        du -sh ~ | cut -f1'
+    exec docker system df
     ;;
   update)
     shift

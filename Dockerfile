@@ -3,7 +3,7 @@
 # Everything is installed inside the image at its latest version when build.
 # Nothing from the host is mounted in: rebuild to update (docker build --no-cache --pull).
 
-ARG NODE_MAJOR=24
+ARG NODE_MAJOR=26
 ARG UBUNTU_VERSION=26.04
 
 #
@@ -105,7 +105,7 @@ RUN go version
 # root-owned in /usr/local: the unprivileged user cannot overwrite these. The two agents are
 # deliberately NOT here -- they go into the home volume below so they can update themselves.
 # npm 12 blocks dependency lifecycle scripts by default; --allow-scripts opts pnpm back in
-# (node 24 still ships npm 11, where the flag is silently ignored -- hence the explicit upgrade)
+# (node 26 still ships npm 11, where the flag is silently ignored -- hence the explicit upgrade)
 RUN npm install -g npm@12 \
  && npm install -g --allow-scripts=pnpm \
       pnpm \

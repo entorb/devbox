@@ -15,7 +15,7 @@ After changes, just start the container again, no rebuild needed.
 # one-off command
 # (re)build the image
 ./devbox build
-# update opencode, claude, and tool-configs (rtk/ctx7)
+# update opencode, claude, and tool-configs (rtk/ctx7/codegraph)
 ./devbox update
 # update everything else; nothing is pinned, all resolve latest
 ./devbox build --no-cache --pull
@@ -65,7 +65,7 @@ flowchart LR
   subgraph box["container (--rm, uid 1000 't')"]
     direction TB
     subgraph img["image 'devbox'"]
-      tools["/usr/local — node, npm, pnpm, uv, go,<br>biome, ruff, prek, rumdl, rtk, apt packages"]
+      tools["/usr/local — node, npm, pnpm, uv, go,<br>biome, ruff, prek, rumdl, rtk, codegraph, apt packages"]
       browser["/opt/ms-playwright — chromium-headless-shell<br>/opt/uv-tools — python tool venvs"]
       binary["/usr/local/bin/tool-config"]
     end
@@ -124,6 +124,18 @@ Nothing is shared, so install once on each side (`pnpm install`, `uv sync`). Loc
 cross — they are real files on the bind mount.
 
 `./devbox reset` drops those volumes along with the home volume — reinstall inside afterwards.
+
+## CodeGraph
+
+Installed in the image (`/usr/local/bin/codegraph`) and wired into both agents as an MCP server.
+Nothing is indexed until you do it, per repo, inside the box:
+
+```sh
+cd /code/<repo> && codegraph init
+```
+
+The index lands in `.codegraph/` in the host repo (bind mount), so the host sees it too. Update it
+with a rebuild (`./devbox build --no-cache --pull`), not `codegraph upgrade`.
 
 ## Ports
 

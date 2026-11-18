@@ -133,6 +133,18 @@ RUN curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/in
  && rtk --version
 
 #
+# => codegraph via install.sh
+#
+
+# same route as rtk, root-owned: bundle in /opt, launcher in /usr/local/bin, both survive reset.
+# Update is a rebuild, not `codegraph upgrade`: that would rewrite /opt as t and fail.
+# Telemetry is off for the whole image: no usage stats leave the box.
+ENV CODEGRAPH_TELEMETRY=0
+RUN curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh \
+      | CODEGRAPH_INSTALL_DIR=/opt/codegraph CODEGRAPH_BIN_DIR=/usr/local/bin sh \
+ && codegraph --version
+
+#
 # => playwright + headless chromium
 #
 

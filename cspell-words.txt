@@ -1,5 +1,6 @@
 biomejs
 chowned
+codegraph
 devbox
 eichhof
 entorb

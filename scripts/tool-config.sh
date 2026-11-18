@@ -16,6 +16,10 @@ jq --arg p "$HOME/.config/opencode/rules/agents.md" \
   '.instructions = [$p] | .formatter = true' "$oc" >"$oc.new"
 mv "$oc.new" "$oc"
 
+# codegraph MCP (+ prompt hook for claude). Runs after the opencode.json step so it merges into
+# that file instead of creating opencode.jsonc. Re-runs are no-ops. Needs the image's codegraph.
+codegraph install -t claude,opencode -l global -y </dev/null
+
 # git identity, handed in by `devbox update` from the host's global config. Unset at image build,
 # so that caller skips it. user.name/user.email cover author and committer both, which the
 # GIT_COMMITTER_* the launcher would otherwise have to pass do not do on their own.

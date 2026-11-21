@@ -101,6 +101,7 @@ case "${1-}" in
         npm cache clean --force
         pnpm store prune
         go clean -cache
+        rm -rf ~/.cargo/registry/cache ~/.cache/cargo-target
         prek cache gc
         rm -rf ~/.cache/Cypress  # no cleaner of its own; npm install fetches it again
         du -sh ~ | cut -f1'

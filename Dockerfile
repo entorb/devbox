@@ -13,6 +13,7 @@ ARG UBUNTU_VERSION=26.04
 FROM ghcr.io/astral-sh/uv:latest AS uv
 FROM node:${NODE_MAJOR}-trixie-slim AS node
 FROM golang:latest AS go
+FROM rust:latest AS rust
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -97,6 +98,24 @@ COPY --from=uv /uv /uvx /usr/local/bin/
 COPY --from=go /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:/home/t/go/bin:$PATH
 RUN go version
+
+#
+# => Copy rust from official rust image, + clippy, rustfmt, cargo-shear, cargo-deny
+#
+
+# toolchain and cargo tools root-owned in /usr/local, so they survive a home-volume reset.
+# CARGO_HOME then moves to the home volume: registry cache and `cargo install` are per-user, like GOPATH.
+COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup \
+    PATH=/home/t/.cargo/bin:/usr/local/cargo/bin:$PATH
+RUN CARGO_HOME=/usr/local/cargo rustup component add clippy rustfmt \
+ && CARGO_HOME=/usr/local/cargo cargo install --locked cargo-shear cargo-deny \
+ && rm -rf /usr/local/cargo/registry /usr/local/cargo/git \
+ && cargo --version
+# the host's target/ holds darwin builds in the same bind mount; a separate dir avoids rebuild thrash
+ENV CARGO_HOME=/home/t/.cargo \
+    CARGO_TARGET_DIR=/home/t/.cache/cargo-target
 
 #
 # => npm 12, pnpm, biome via npm

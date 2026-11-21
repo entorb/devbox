@@ -65,7 +65,7 @@ flowchart LR
   subgraph box["container (--rm, uid 1000 't')"]
     direction TB
     subgraph img["image 'devbox'"]
-      tools["/usr/local — node, npm, pnpm, uv, go,<br>biome, ruff, prek, rumdl, rtk, codegraph, apt packages"]
+      tools["/usr/local — node, npm, pnpm, uv, go, rust,<br>cargo-shear, cargo-deny, biome, ruff, prek, rumdl, rtk, codegraph, apt packages"]
       browser["/opt/ms-playwright — chromium-headless-shell<br>/opt/uv-tools — python tool venvs"]
       binary["/usr/local/bin/tool-config"]
     end

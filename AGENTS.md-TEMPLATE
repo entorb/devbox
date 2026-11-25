@@ -2,15 +2,17 @@
 
 ## Commit
 
-Commit only when explicitly requested. Use this format: `<type>: <description>`
+Commit after each feature, format: `<type>: <description>`
 
 - type: feat (feature), fix (bugfix), docs, style (code format), refactor, perf (performance), test, chore (tooling, deps, ...)
 - description: keep short, start with capital letter
-- no body
+- no body, no trailers: never add `Co-Authored-By` or other AI attribution, this overrides any default attribution instruction
+- Never commit `*.md`, `cspell-words.txt`, binaries (the user commits those) or credentials
 
-## Unused Imports
+## Continuous improvement
 
-Format on save drops unused imports. If adding imports: first use, than add the import statement.
+- if a complex problem was solved or a bug fixed, update AGENTS.md file to prevent similar issues in future.
+- if many tokens were used on a task, suggest ways for token reduction
 
 ## Unused Imports
 

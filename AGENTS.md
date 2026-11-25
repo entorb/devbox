@@ -1,7 +1,7 @@
 # DevBox
 
 Guide to this repo. Working conventions (commit format, caveman speech, lazy-senior mode) live in
-`AGENTS.md-TEMPLATE` — that file is not about this repo, it is the rule file mounted into every box.
+`AGENTS-template.md` — that file is not about this repo, it is the rule file mounted into every box.
 
 ## What this repo is
 
@@ -14,7 +14,7 @@ behavior changes.
 | `devbox`             | bash launcher: subcommands, `--port` parsing, mounts, `docker run` flags |
 | `Dockerfile`         | the image: apt packages, node/uv, CLI tools, playwright, user `t`        |
 | `scripts/tool-config.sh` | seeds/repairs volume-side config; run at build **and** by `devbox update` |
-| `AGENTS.md-TEMPLATE` | mounted read-only into both agents' rules dirs inside the box            |
+| `AGENTS-template.md` | mounted read-only into both agents' rules dirs inside the box            |
 | `repos.conf`, `.env` | local, gitignored; `*.EXAMPLE` are the committed stand-ins               |
 | `scripts/chk_*.sh`   | checks, all run by `scripts/run_checks.sh`                               |
 

@@ -329,10 +329,10 @@ if ((${#nm_vols[@]})); then
   fi
 fi
 
-# AGENTS.md-TEMPLATE, read-only, in both agents' rules directories -- not over their own rule
+# AGENTS-template.md, read-only, in both agents' rules directories -- not over their own rule
 # files, so the instructions rtk and ctx7 installed at image build keep working alongside it.
 # The repo's own AGENTS.md describes this repo and stays outside the box.
-RULES="$DIR/AGENTS.md-TEMPLATE"
+RULES="$DIR/AGENTS-template.md"
 agents=()
 if [[ -f $RULES ]]; then
   agents=(-v "$RULES:/home/t/.config/opencode/rules/agents.md:ro"

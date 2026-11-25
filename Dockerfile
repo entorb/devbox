@@ -209,7 +209,7 @@ COPY --chmod=755 scripts/tool-config.sh /usr/local/bin/tool-config
 # => setup user t (renamed from ubuntu)
 #
 
-# these must exist and be t-owned before the launcher mounts AGENTS.md-TEMPLATE into the rules dirs,
+# these must exist and be t-owned before the launcher mounts AGENTS-template.md into the rules dirs,
 # otherwise docker creates them root-owned and the agents cannot write their own state
 # uid/gid stay 1000 -- only the names and the home path change, so bind-mounted files keep the
 # same ownership as on the host. -m moves the existing home, so nothing from the base image is lost.
@@ -255,7 +255,7 @@ RUN npm install -g \
 # Agent config is seeded into the image as t, so the devbox-home volume inherits it when
 # docker first creates it. rtk and ctx7 own their own instructions -- RTK.md and the @RTK.md
 # reference in CLAUDE.md, the ctx7 rule, skill and MCP config, the opencode plugin.
-# AGENTS.md-TEMPLATE is mounted into the rules dirs at runtime, alongside these, so nothing here is shadowed.
+# AGENTS-template.md is mounted into the rules dirs at runtime, alongside these, so nothing here is shadowed.
 # Flags are not optional: a bare `ctx7 setup` starts an interactive device login that blocks the
 # build until the code expires. --oauth writes the endpoint and defers the login to first use.
 # --auto-patch likewise: rtk otherwise prompts before adding its Bash hook to settings.json and

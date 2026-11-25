@@ -57,7 +57,7 @@ flowchart LR
 
   subgraph host["host"]
     repos["paths in repos.conf"]
-    amd["AGENTS.md-TEMPLATE"]
+    amd["AGENTS-template.md"]
     keys[".env"]
     script["scripts/tool-config.sh"]
   end
@@ -160,7 +160,7 @@ The ports go into the container hostname, so the prompt and terminal tab name th
 
 Check the port logic after touching it: `./devbox selftest`
 
-## AGENTS.md-TEMPLATE
+## AGENTS-template.md
 
 Mounted read-only into each agent's rules directory.
 Holds only my own conventions, no tools like rtk and Context7, ...

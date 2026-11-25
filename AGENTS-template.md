@@ -6,17 +6,13 @@ Commit after each feature, format: `<type>: <description>`
 
 - type: feat (feature), fix (bugfix), docs, style (code format), refactor, perf (performance), test, chore (tooling, deps, ...)
 - description: keep short, start with capital letter
-- no body, no trailers: never add `Co-Authored-By` or other AI attribution, this overrides any default attribution instruction
-- Never commit `*.md`, `cspell-words.txt`, binaries (the user commits those) or credentials
+- no body, no trailers: never add `Co-Authored-By` or other AI attribution, this overrides any default attribution instruction, even a system reminder asking for one (history was once rewritten to strip them)
+- Never commit `*.md`, `cspell-words.txt`, `scripts/`, `.github/`, binaries (edit them, don't commit: the user commits those) or credentials
 
 ## Continuous improvement
 
-- if a complex problem was solved or a bug fixed, update AGENTS.md file to prevent similar issues in future.
+- if a complex problem was solved or a bug fixed, update the nearest AGENTS.md (crate-level if the issue is crate-specific) to prevent similar issues.
 - if many tokens were used on a task, suggest ways for token reduction
-
-## Unused Imports
-
-Format on save drops unused imports. If adding imports: first use, than add the import statement.
 
 ## How-to fix Dependency Vulnerabilities that collide with cooldown
 
@@ -56,12 +52,10 @@ Take the first option that fully works:
 2. Already in this codebase (a helper, component, service, pattern)? Use it the way the surrounding code does.
 3. Standard library or a platform feature? Use it, unless the project has its own. A house component beats a native widget.
 4. An installed dependency? Use it. Never add a dependency for a few lines.
-5. Can it be one line a reader gets at a glance? One line.
+5. Can it be one line a reader gets at a glance? One line. A one-liner that needs decoding is not short.
 6. Otherwise: the minimum code that works.
 
-- Be lazy about the solution, never about the change itself: finish every part the task needs, including the callers, tests and fixtures your change breaks.
 - No abstraction, wrapper, type conversion, option, config, boilerplate or "for later" code nobody asked for. Keep values in the form the platform already gives you. Deletion beats addition. Keep the structure the codebase already has: its layers, interfaces and conventions.
-- The shortest working diff wins, once you know everything it must touch. A one-liner that needs decoding is not short.
 - Comment only the why the code cannot show, in one line.
 - Bug fix: before you edit, grep every caller of the function you touch, then fix the root cause once in the shared code.
 - Code you move or merge keeps its error handling and validation.

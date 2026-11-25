@@ -20,6 +20,28 @@ mv "$oc.new" "$oc"
 # that file instead of creating opencode.jsonc. Re-runs are no-ops. Needs the image's codegraph.
 codegraph install -t claude,opencode -l global -y </dev/null
 
+# codegraph and ctx7 re-add long instructions on every run; their MCP servers already carry them.
+# Runs after both (ctx7 setup precedes tool-config in both callers). Markers stay, so the tools
+# keep updating their block in place and the next run shrinks it again.
+shrink() { # shrink <file> <start-marker> <end-marker> <line>
+  [ -f "$1" ] || return 0
+  awk -v s="$2" -v e="$3" -v l="$4" '
+    !skip && $0 == s { print; print l; skip = 1; next }
+    skip && $0 == e { skip = 0 }
+    !skip' "$1" >"$1.new" && mv "$1.new" "$1"
+}
+# keep tool + CLI names: this block is how subagents and non-MCP harnesses learn codegraph
+# shellcheck disable=SC2016  # literal backticks, markdown not command substitution
+cg='Repos with `.codegraph/`: `codegraph_explore` (MCP) or `codegraph explore "<query>"` (shell) before grep/Read; no index: skip (indexing is the user'"'"'s decision).'
+# opencode prefixes the MCP server key to tool names
+# shellcheck disable=SC2016  # as above
+cg_oc='Repos with `.codegraph/`: `codegraph_codegraph_explore` (MCP) or `codegraph explore "<query>"` (shell) before grep/Read; no index: skip (indexing is the user'"'"'s decision).'
+c7='Context7 for library docs when an API is new to the code or a version changes; not for APIs the code already uses.'
+shrink "$HOME/.claude/CLAUDE.md" '<!-- CODEGRAPH_START -->' '<!-- CODEGRAPH_END -->' "$cg"
+shrink "$HOME/.config/opencode/AGENTS.md" '<!-- CODEGRAPH_START -->' '<!-- CODEGRAPH_END -->' "$cg_oc"
+shrink "$HOME/.config/opencode/AGENTS.md" '<!-- context7 -->' '<!-- context7 -->' "$c7"
+[ ! -f "$HOME/.claude/rules/context7.md" ] || echo "$c7" >"$HOME/.claude/rules/context7.md"
+
 # git identity, handed in by `devbox update` from the host's global config. Unset at image build,
 # so that caller skips it. user.name/user.email cover author and committer both, which the
 # GIT_COMMITTER_* the launcher would otherwise have to pass do not do on their own.

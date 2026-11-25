@@ -12,6 +12,7 @@ gopath
 gpasswd
 korrekturleser
 librsvg
+libxkbcommon
 lockfiles
 mindchat
 mountpoint

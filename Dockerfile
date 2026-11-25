@@ -37,6 +37,7 @@ RUN apt-get update \
       jq \
       less \
       librsvg2-bin \
+      libxkbcommon-x11-0 \
       mc \
       ncdu \
       netcat-openbsd \
@@ -49,7 +50,8 @@ RUN apt-get update \
       sqlite3 \
       tree \
       unzip \
-      vim
+      vim \
+      xdotool
 
 RUN rm -rf /var/lib/apt/lists/*
 
@@ -113,9 +115,19 @@ RUN CARGO_HOME=/usr/local/cargo rustup component add clippy rustfmt \
  && CARGO_HOME=/usr/local/cargo cargo install --locked cargo-shear cargo-deny \
  && rm -rf /usr/local/cargo/registry /usr/local/cargo/git \
  && cargo --version
-# the host's target/ holds darwin builds in the same bind mount; a separate dir avoids rebuild thrash
+# the host's target/ holds darwin builds in the same bind mount; a separate dir avoids rebuild
+# thrash and keeps host file watchers quiet. Per repo in /tmp: /code/<repo>/... builds into
+# /tmp/<repo>; the container runs --rm, so the next box builds from scratch.
+RUN mkdir -p /usr/local/devbox/bin \
+ && printf '%s\n' '#!/bin/sh' \
+      'if [ -z "${CARGO_TARGET_DIR-}" ]; then' \
+      '  case $PWD in /code/?*) r=${PWD#/code/}; CARGO_TARGET_DIR=/tmp/${r%%/*} ;; *) CARGO_TARGET_DIR=/tmp/cargo-target ;; esac' \
+      '  export CARGO_TARGET_DIR' \
+      'fi' \
+      'exec /usr/local/cargo/bin/cargo "$@"' > /usr/local/devbox/bin/cargo \
+ && chmod 755 /usr/local/devbox/bin/cargo
 ENV CARGO_HOME=/home/t/.cargo \
-    CARGO_TARGET_DIR=/home/t/.cache/cargo-target
+    PATH=/usr/local/devbox/bin:$PATH
 
 #
 # => npm 12, pnpm, biome via npm

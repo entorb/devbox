@@ -165,6 +165,8 @@ Check the port logic after touching it: `./devbox selftest`
 Mounted read-only into each agent's rules directory.
 Holds only my own conventions, no tools like rtk and Context7, ...
 (`AGENTS.md` describes this repo instead and stays outside the box.)
+`tool-config` shrinks the instruction blocks codegraph and ctx7 write (`~/.claude/CLAUDE.md`,
+`~/.claude/rules/context7.md`, `~/.config/opencode/AGENTS.md`) to one line each; their MCP servers carry the rest.
 
 ```sh
 ~/.claude/rules/agents.md
